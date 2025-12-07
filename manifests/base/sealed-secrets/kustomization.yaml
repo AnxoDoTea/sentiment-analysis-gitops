@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - controller.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sealed-secrets-controller
+  namespace: kube-system
+  labels:
+    name: sealed-secrets-controller
+spec:
+  minReadySeconds: 30
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      name: sealed-secrets-controller
+  template:
+    metadata:
+      labels:
+        name: sealed-secrets-controller
+    spec:
+      containers:
+        - args:
+            - --update-status
+            - --key-prefix=sealed-secrets-key
+          image: bitnami/sealed-secrets-controller:v0.24.4
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          name: sealed-secrets-controller
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+          stdin: true
+          tty: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp
+      initContainers: []
+      serviceAccountName: sealed-secrets-controller
+      volumes:
+        - emptyDir: {}
+          name: tmp
